@@ -2,7 +2,6 @@ import random
 import time
 
 import scrapy
-import re
 
 from pydispatch import dispatcher
 from scrapy import signals
@@ -38,7 +37,7 @@ class DIYSpider(scrapy.Spider):
         }
         self.options.add_experimental_option('prefs', prefs)
         # self.options.add_experimental_option("debuggerAddress", "127.0.0.1:9222") #采用debug模式，接管现有的浏览器应用程序，从而避免部分网站反爬检测selenium
-        self.diybrowser = Chrome(options=self.options)
+        self.diybrowser = Chrome(executable_path='chromedriver.exe',options=self.options)
         super(DIYSpider, self).__init__(*args, **kwargs)
 
 
@@ -94,7 +93,7 @@ class DIYSpider(scrapy.Spider):
                 page = False
             finally:
                 self.get_page(item)
-                time.sleep(random.uniform(1,2))
+                time.sleep(random.uniform(0.5,1))
                 if page == False:
                     break
                 element.click()
@@ -138,10 +137,10 @@ class DIYSpider(scrapy.Spider):
                 strarr = value.split('/')
                 element = self.get_element(self.diybrowser,value.rstrip('/' + strarr[-1]))
                 if element != None and strarr[-1].find('@') == 0:
-                    item[key] = element.get_attribute((strarr[-1].split('@'))[-1])
+                    item[key] = element.get_attribute((strarr[-1].split('@'))[-1]).strip()
                 else:
                     if element != None and strarr[-1].find('text') != -1:
-                        item[key] = element.get_attribute('textContent')
+                        item[key] = element.get_attribute('textContent').strip()
             else:
                 elements = self.diybrowser.find_elements_by_xpath(value['xpath'])
                 for element in elements:
@@ -152,9 +151,9 @@ class DIYSpider(scrapy.Spider):
                         strarr = innervalue.split('/')
                         ele = self.get_element(element,innervalue.rstrip('/' + strarr[-1]))
                         if ele != None and strarr[-1].find('@') == 0:
-                            map[innerkey] = ele.get_attribute((strarr[-1].split('@'))[-1])
+                            map[innerkey] = ele.get_attribute((strarr[-1].split('@'))[-1]).strip()
                         else:
                             if ele != None and strarr[-1].find('text') != -1:
-                                map[innerkey] = ele.get_attribute('textContent')
+                                map[innerkey] = ele.get_attribute('textContent').strip()
                     item[key].append(map)
 
