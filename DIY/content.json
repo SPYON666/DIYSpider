@@ -1,8 +1,10 @@
 {
-  "Date": {
-    "xpath":"//*[@id='all-list']/div[1]/div[2]/ul/li",
-    "data":".//span[@title='观看']/text()",
-    "title":".//a[@class='title']/text()"
-  },
-  "key": "//*[@id='search-keyword']/@value"
+  "scroll" : 3,
+  "content" : {
+    "Date": {
+      "xpath":"//*[@id='TopicMain']/div[3]/div/div/div/div",
+      "title":".//div/h2/text()"
+    },
+    "key": "//*[@id='search-keyword']/@value"
+  }
 }
