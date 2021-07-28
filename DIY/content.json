@@ -1,9 +1,11 @@
 {
-  "scroll" : 3,
+  "page": true,
+  "scroll" : 0,
   "content" : {
     "Date": {
-      "xpath":"//*[@id='TopicMain']/div[3]/div/div/div/div",
-      "title":".//div/h2/text()"
+      "xpath":"//li[@class='video-item matrix']",
+      "data":".//span[@title='观看']/text()",
+      "title":".//a[@class='title']/text()"
     },
     "key": "//*[@id='search-keyword']/@value"
   }

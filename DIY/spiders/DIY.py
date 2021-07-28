@@ -1,11 +1,19 @@
+import random
 import time
 
 import scrapy
 import re
+
+from pydispatch import dispatcher
+from scrapy import signals
+from scrapy.signalmanager import SignalManager
 from selenium.webdriver import ChromeOptions
+from selenium.webdriver.common.by import By
 from selenium.webdriver import Chrome
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from copy import deepcopy
+from  DIY.middlewares import DIYDownloaderMiddleware
 import json
 
 
@@ -14,9 +22,9 @@ class DIYSpider(scrapy.Spider):
     start_urls = []
     custom_settings = {}
     scroll = 0
+    page = False
 
-    def __init__(self, theme=None, *args, **kwargs):
-        self.theme = theme
+    def __init__(self, *args, **kwargs):
         self.options = ChromeOptions()
         self.options.add_argument("--headless")  # => 为Chrome配置无头模式
         self.options.add_argument("--disable-gpu")
@@ -32,6 +40,8 @@ class DIYSpider(scrapy.Spider):
         # self.options.add_experimental_option("debuggerAddress", "127.0.0.1:9222") #采用debug模式，接管现有的浏览器应用程序，从而避免部分网站反爬检测selenium
         self.diybrowser = Chrome(options=self.options)
         super(DIYSpider, self).__init__(*args, **kwargs)
+
+
         f = open('url.txt', encoding='utf8')
         self.start_urls = f.readlines()
         f.close()
@@ -39,12 +49,21 @@ class DIYSpider(scrapy.Spider):
         js = json.load(f)
         self.content = js["content"]
         self.scroll = js["scroll"]
+        self.page = js["page"]
         f.close()
+
         itemContent = deepcopy(self.content)
         item = {}
         for key,value in itemContent.items():
             item[key] = scrapy.Field()
         self.DIYItem = type('DIYItem',(scrapy.Item,),item)
+
+        SignalManager(dispatcher.Any).connect(
+            self.closed_handler, signal=signals.spider_closed)
+
+
+    def closed_handler(self, spider):
+        self.diybrowser.quit()
 
 
     def start_requests(self):
@@ -58,27 +77,27 @@ class DIYSpider(scrapy.Spider):
 
     def parse(self, response):
         item = self.DIYItem()
-        script = '''
-        Object.defineProperty(navigator, 'webdriver', {
-            get: () => undefined
+        self.item_init(item,self.content)
+        self.diybrowser.execute_cdp_cmd("Emulation.setUserAgentOverride", {
+            "userAgent": random.choice(DIYDownloaderMiddleware.user_agent_list)
         })
-        '''
-        self.diybrowser.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": script})
         self.diybrowser.get(response.url)
         time.sleep(1)
-        temp_height = 0
-        scroll = self.scroll
-        while scroll==-1 or scroll > 0:
-            self.diybrowser.execute_script('window.scrollBy(0,5000)')
-            time.sleep(0.5)
-            check_height = self.diybrowser.execute_script(
-                "return document.body.scrollHeight;")
-            if check_height == temp_height:
-                break
-            temp_height = check_height
-            if scroll > 0:
-                scroll = scroll-1
-            self.get_item(item,self.content)
+        page = self.page
+        while True:
+            try:
+                element = WebDriverWait(self.diybrowser, 2).until(
+                    EC.element_to_be_clickable((By.XPATH,'//*[contains(text(),"下一页")]'))
+                )
+            except:
+                print('已到达最后一页','\n')
+                page = False
+            finally:
+                self.get_page(item)
+                time.sleep(random.uniform(1,2))
+                if page == False:
+                    break
+                element.click()
         yield item
 
 
@@ -90,6 +109,28 @@ class DIYSpider(scrapy.Spider):
             print('该元素不存在，填充为None','\n')
             ele = None
             return ele
+
+
+    def get_page(self,item):
+        temp_height = 0
+        scroll = self.scroll
+        while scroll == -1 or scroll > 0:
+            self.diybrowser.execute_script('window.scrollBy(0,5000)')
+            time.sleep(0.25)
+            check_height = self.diybrowser.execute_script(
+                "return document.body.scrollHeight;")
+            if check_height == temp_height:
+                break
+            temp_height = check_height
+            if scroll > 0:
+                scroll = scroll - 1
+        self.get_item(item, self.content)
+
+
+    def item_init(self,item,content):
+        for key,value in content.items():
+            if type(value) is not str:
+                item[key] = []
 
     def get_item(self,item,content):
         for key,value in content.items():
@@ -103,7 +144,6 @@ class DIYSpider(scrapy.Spider):
                         item[key] = element.get_attribute('textContent')
             else:
                 elements = self.diybrowser.find_elements_by_xpath(value['xpath'])
-                elementlist = []
                 for element in elements:
                     map = {}
                     for innerkey, innervalue in value.items():
@@ -116,6 +156,5 @@ class DIYSpider(scrapy.Spider):
                         else:
                             if ele != None and strarr[-1].find('text') != -1:
                                 map[innerkey] = ele.get_attribute('textContent')
-                    elementlist.append(map)
-                item[key] = elementlist
+                    item[key].append(map)
 
