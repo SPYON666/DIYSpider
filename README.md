@@ -1,0 +1,3 @@
+# DIYSpider
+实现根据输入的XPATH和URL自动进行页面爬取 URL.txt中填写要爬取的页面的URL地址 context.json中填写特定格式的json结构，用来表明爬取的内容
+由于部分浏览器使用了反selenium，所以暂时是通过接管已经打开的Chrome浏览器来规避这种情况，所以需要将chrom.exe文件加入系统环境变量中，以便程序可以自主启动浏览器
