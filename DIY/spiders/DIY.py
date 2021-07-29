@@ -2,7 +2,7 @@ import random
 import time
 
 import scrapy
-
+from lxml import etree
 from pydispatch import dispatcher
 from scrapy import signals
 from scrapy.signalmanager import SignalManager
@@ -25,18 +25,18 @@ class DIYSpider(scrapy.Spider):
 
     def __init__(self, *args, **kwargs):
         self.options = ChromeOptions()
-        self.options.add_argument("--headless")  # => 为Chrome配置无头模式
-        self.options.add_argument("--disable-gpu")
-        self.options.add_experimental_option('excludeSwitches', ['disable-logging'])
-        self.options.add_experimental_option('excludeSwitches', ['enable-automation'])
-        self.options.add_experimental_option('useAutomationExtension', False)
-        prefs = {
-            'profile.default_content_setting_values': {
-                'images': 2,
-            }
-        }
-        self.options.add_experimental_option('prefs', prefs)
-        # self.options.add_experimental_option("debuggerAddress", "127.0.0.1:9222") #采用debug模式，接管现有的浏览器应用程序，从而避免部分网站反爬检测selenium
+        # self.options.add_argument("--headless")  # => 为Chrome配置无头模式
+        # self.options.add_argument("--disable-gpu")
+        # self.options.add_experimental_option('excludeSwitches', ['disable-logging'])
+        # self.options.add_experimental_option('excludeSwitches', ['enable-automation'])
+        # self.options.add_experimental_option('useAutomationExtension', False)
+        # prefs = {
+        #     'profile.default_content_setting_values': {
+        #         'images': 2,
+        #     }
+        # }
+        # self.options.add_experimental_option('prefs', prefs)
+        self.options.add_experimental_option("debuggerAddress", "127.0.0.1:9222") #采用debug模式，接管现有的浏览器应用程序，从而避免部分网站反爬检测selenium
         self.diybrowser = Chrome(executable_path='chromedriver.exe',options=self.options)
         super(DIYSpider, self).__init__(*args, **kwargs)
 
@@ -85,11 +85,14 @@ class DIYSpider(scrapy.Spider):
         page = self.page
         while True:
             try:
-                element = WebDriverWait(self.diybrowser, 2).until(
-                    EC.element_to_be_clickable((By.XPATH,'//*[contains(text(),"下一页")]'))
+                WebDriverWait(self.diybrowser, 2).until(
+                    EC.presence_of_element_located((By.XPATH,'//*[text() = "1"]'))
                 )
+                tree = etree.HTML(self.diybrowser.page_source)
+                element_name = tree.xpath('local-name(//*[text() = "1"])')
+                element = self.get_element(self.diybrowser,'//%s[text() = "1"]/../..//%s[last()]'%element_name)
             except:
-                print('已到达最后一页','\n')
+                print('已到达最后一页或未找到翻页按钮','\n')
                 page = False
             finally:
                 self.get_page(item)
